@@ -1,193 +1,84 @@
-# 🚀 **NASA Turbofan Jet Engine Data Set - FD001**
+# 🚀 **NASA Turbofan Jet Engine Data Set**
 
-# 📂 코드 개요
+잔존 수명 예측 기반 예지보전 시스템 구축 프로젝트<br>
+캐글 공개 데이터셋(C-MAPSS)을 활용한 시계열 기반 머신러닝 모델링
+
+## 📂 루트 디렉토리 및 주요 파일 구조
 ```
-1105_EDA_FD001.ipynb                   : EDA 및 Feature Selection
-1106_LSTM_TCN_FD001.ipynb              : LSTM, TCN 학습 (기타 전처리 X)
-1107_XGB_LGBM_FD001_01.ipynb           : 유닛별 전체 기초 통계량 데이터로 XGB, LSTM 학습
-1107_XGB_LGBM_FD001_02.ipynb           : 시간별 누적 통계량 데이터로 XGB, LSTM 모델 학습
-1111_RUL_Clipping_LSTM_TCN_FD001.ipynb : RUL Clipping 적용하여 LSTM, TCN 학습
-```
+📂 FD001
+├── EDA_FD001.ipynb # FD001 데이터 EDA
+├── ~~~_Regression_FD001.ipynb # 전처리 및 모델 테스트
+├── Result_FD001.ipynb # 결과 종합
+└── Hyperparameter_Tuning_Ensemble_FD001.ipynb # 하이퍼파라미터 튜닝 및 앙상블 실험
 
-# 🧠 EDA
-각 센서별 이동평균의 추세를 확인하여 의미 없는 Feature 제외
-
-### 📌 센서별 이동평균: RUL이 작아질수록 위 아래로 발산할 수록 중요한 Feature
-<img width="1989" height="2390" alt="image" src="https://github.com/user-attachments/assets/aa6efd37-a5a1-4ab6-90c4-016ad3805602" />
-
----
-
-### 📌 센서별 이동평균: 정규분포 형태의 센서 확인
-<img width="1990" height="2390" alt="image" src="https://github.com/user-attachments/assets/b80bf040-d3ae-44d6-9171-f0e3e0a470fe" />
-
----
-
-### 📌 상관계수 확인
-<img width="924" height="836" alt="image" src="https://github.com/user-attachments/assets/689a0e5b-cba7-4bed-98f1-86a6fa8d3ce8" />
-
----
-
-**❗ EDA 결과 `s_1, s_5, s_6, s_16, s_18, s_19` 제외**
-
-# 🧠 LSTM, TCN
-아무 전처리도 적용하지 않은 Raw Data를 크기 30인 Window를 통한 Sequence 입력 생성
-
-### 📌 1부터 100까지의 Unit을 10개 단위로 나누어 10 Fold Validation 진행
-
-|Model|RMSE|MAE|
-|---|---|---|
-|LSTM|30.544|22.556|
-|TCN|28.902 ✅|20.580 ✅|
-
-### 📌 Train Set 예측 시각화 (각 유닛별 최대 RUL 기준)
-<img width="1238" height="470" alt="image" src="https://github.com/user-attachments/assets/c85ef542-4d1e-4867-93ec-55fcabc02c5a" />
-
----
-
-### 📌 Test Set 예측 결과
-
-|Model|RMSE|MAE|
-|---|---|---|
-|LSTM|32.204|26.555|
-|TCN|27.635 ✅|21.021 ✅|
-
-### 📌 Test Set 예측 시각화
-<img width="1238" height="470" alt="image" src="https://github.com/user-attachments/assets/b9615c1d-1952-4079-ad95-e4f2381e5dd2" />
-
----
-
-RUL Clipping을 통해 RUL이 높은 구간에 데이터가 많아지는 것을 방지하고 중요한 고장 직전 데이터 예측 성능 향상
-
-### 📌 Train Data RUL 분포 확인
-<img width="571" height="455" alt="image" src="https://github.com/user-attachments/assets/282ef11a-42b2-44de-844e-76eb83c78242" />
-
-**❗ 확인 결과 125 ~ 200 사이 구간에서 수가 급격히 줄어드는 것을 확인할 수 있음.**
-
----
-
-### 📌 최적 RUL Clip Value 확인
-125 ~ 200 으로 RUL Clipping 후 10 Fold Validation 성능 확인
-
-- LSTM
-
-|Clip Value|RMSE|MAE|
-|---|---|---|
-|125|14.529 ✅|11.047 ✅|
-|150|19.105|14.784|
-|175|23.097|17.738|
-|200|25.973|19.661|
-|Raw|30.133|22.254|
-
-- TCN
-
-|Clip Value|RMSE|MAE|
-|---|---|---|
-|125|15.014 ✅|11.624 ✅|
-|150|19.093|14.800|
-|175|22.225|16.876|
-|200|24.665|18.562|
-|Raw|29.731|21.602|
-
-**❗ 두 모델 모두 Clip Value 125에서 가장 좋은 성능을 보임**
-
----
-
-### 📌 Train Set 예측 시각화 (각 유닛별 최대 RUL 기준, RUL Clipping 적용)
-<img width="1238" height="470" alt="image" src="https://github.com/user-attachments/assets/082825cf-d3a0-44f1-ac8f-f163a80009f6" />
-
-Train Set에는 Max RUL이 125 이상인 데이터가 대부분 → 큰 RUL에서 성능이 떨어짐<br>
-**❗ But, RUL이 큰 데이터보다 고장 직전인 데이터 예측 성능이 중요**
-
----
-
-### 📌 Test Set 예측 결과 (RUL Clipping 적용)
-
-|Model|RMSE|MAE|
-|---|---|---|
-|LSTM|15.144 ✅|11.397 ✅|
-|TCN|16.183|11.642|
-
-### 📌 Test Set 예측 시각화
-<img width="1238" height="470" alt="image" src="https://github.com/user-attachments/assets/35115a26-4cd9-4773-b9b0-76e4ee65f2d8" />
-
-Test Set에는 RUL이 125 이하인 데이터가 대부분<br>
-**❗ 예상대로 고장 직전인 데이터 예측 성능 대폭 향상 (약 2배)**
-
-# 🧠 XGB, LGBM
-각 유닛별 전체 통계량 데이터를 사용하여 학습
-```
-s_*_mean    : 모든 시점의 센서 평균값
-s_*_std     : 모든 시점의 센서 표준편차
-s_*_min     : 모든 시점의 센서 최소값
-s_*_max     : 모든 시점의 센서 최대값
-s_*_last    : 마지막 시점의 센서값
-s_*_median  : 모든 시점의 센서 중앙값
-s_*_trend   : 모든 시점의 센서값의 선형 추세
+📂 FD001
+├── EDA_FD004.ipynb
+├── ~~~_Regression_FD004.ipynb
+├── Result_FD004.ipynb
+└── Hyperparameter_Tuning_Ensemble_FD004.ipynb
 ```
 
-### 📌 Train Set 예측 결과 (유닛별 전체 통계량)
+## 🚀 프로젝트 개요
+항공기 터보팬 제트 엔진의 센서 데이터를 분석하여<br>
+각 엔진의 남은 수명(RUL, Remaining Useful Life)을 예측하고,<br>
+이를 기반으로 예지보전(PdM, Predictive Maintenance) 체계를 설계합니다.
 
-|Model|RMSE|MAE|
+### 목적
+- 고장 시점을 사전에 예측하여 정비 시점 최적화
+- 불필요한 조기 교체 방지 및 비용 절감
+- 안전성 확보 및 데이터 기반 의사결정 지원
+
+## 🚀 배경
+
+📌 공기를 압축 → 연소 → 팽창시켜 발생한 에너지로 터빈을 돌리고 배기가스를 분사해 추진력을 얻는 원리
+
+<img width="1741" height="636" alt="image" src="https://github.com/user-attachments/assets/e740c6c3-25a7-4879-a9bf-2399dc8195e4" />
+
+
+## 📖 데이터셋
+
+- 출처: NASA C-MAPSS Dataset (Kaggle)
+- 형식: 시계열 센서 데이터 (온도, 압력, 속도 등)
+- 엔진 수: 100+ 개별 엔진, 다양한 운항 조건과 고장 모드
+- 구성
+  - train_FD00X.txt: 고장까지 전체 주기 데이터
+  - test_FD00X.txt: 고장 직전까지만 수집된 데이터
+  - RUL_FD00X.txt: 각 test 엔진의 실제 잔존 수명
+
+📌 C-MAPSS(Commercial Modular Aero-Propulsion System Simulation)
+     : NASA가 항공기 엔진의 열역학적 작동 과정을 가상으로 재현하기 위해 제작한 시뮬레이터
+
+📌 1 사이클(Cycle)은 1회 비행을 의미하며, 각 사이클마다 비행 시간과 누적 손상이 다름.
+  - 따라서, 잔존수명(RUL) 예측은 센서 데이터의 변화를 추적하는것이 핵심
+
+<img width="515" height="200" alt="image" src="https://github.com/user-attachments/assets/089f0a1b-87a5-451c-ad2a-960aa4813ece" />
+
+- Train: 엔진이 고장날 때까지의 운전 데이터
+- Test: 엔진이 고장 전 중단된 시점까지의 데이터
+- RUL: Test 세트 각 엔진의 실제 잔여 수명 (Remaining Useful Life)
+
+📌 총 58개의 출력 변수 중 엔진 상태를 대표하는 21개의 센서값이 제공됨
+
+<img width="386" height="414" alt="image" src="https://github.com/user-attachments/assets/1032e575-bf41-4f92-94cf-e87aac28a1ca" />
+
+## 🛠️ 기술 스택
+
+|카테고리|기술|용도|
 |---|---|---|
-|XGB|17.483|14.206|
-|LGBM|17.246 ✅|12.853 ✅|
+|언어|Python 3.12+|전체 개발|
+|데이터 처리|Pandas, NumPy|데이터 전처리, EDA|
+|머신러닝|TensorFlow/Keras|LSTM, TCN 시계열 모델|
+||Scikit-learn|비시계열 모델, 전처리, 평가 지표|
+||XGBoost, LightGBM|트리 기반 모델 비교|
+|모델 튜닝|Optuna|하이퍼파라미터 최적화|
+|해석도구|SHAP (Shapley)|특성 중요도, 모델 설명가능성|
+|시각화|Matplotlib|정적 그래프 (손실 곡선, 산점도)|
+||Seaborn|통계 시각화 (히트맵, 분포도)|
 
-### 📌 Train Set 예측 시각화 (유닛별 전체 통계량)
-<img width="1238" height="470" alt="image" src="https://github.com/user-attachments/assets/a25028be-bb99-4448-9e65-67416d7e940c" />
+## 팀 정보
+- 제로베이스 DS 42기 4인 팀 프로젝트
+- 기간: 2025냔 11월 (총 4주)
 
----
-
-### 📌 Test Set 예측 결과 (유닛별 전체 통계량)
-
-|Model|RMSE|MAE|
-|---|---|---|
-|XGB|217.300|212.600|
-|LGBM|166.879 ✅|162.734 ✅|
-
-### 📌 Test Set 예측 시각화 (유닛별 전체 통계량)
-
-<img width="1238" height="470" alt="image" src="https://github.com/user-attachments/assets/e78d566c-3b82-41b6-8231-8b1c7adc6e64" />
-
-주어진 Test Set은 Train Set과 달리 고장 직전 시점까지가 아닌 중간 시점이 주어짐
-**❗ 따라서 정확한 고장 시점을 구하기 위해선 전체 통계량이 아닌 시점마다 생성해야함**
-
----
-
-시계열 데이터의 특성을 반영하기 위해 모든 시점의 누적 통계량을 입력으로 학습하여 중간 시점의 데이터가 주어졌을 때 예측 성능 향상
-
-### 📌 Train Set 예측 결과 (시점별 누적 통계량)
-
-|Model|RMSE|MAE|
-|---|---|---|
-|XGB|4.471 ✅|2.685 ✅|
-|LGBM|4.843|3.044|
-
-### 📌 Train Set 예측 시각화 (시점별 누적 통계량)
-<img width="1238" height="470" alt="image" src="https://github.com/user-attachments/assets/1cf48fd0-5301-4463-b014-084625ad99bb" />
-
----
-
-### 📌 Test Set 예측 결과 (시점별 누적 통계량)
-
-|Model|RMSE|MAE|
-|---|---|---|
-|XGB|21.847|13.757|
-|LGBM|20.470 ✅|13.212 ✅|
-
-### 📌 Test Set 예측 시각화 (시점별 누적 통계량)
-<img width="1238" height="470" alt="image" src="https://github.com/user-attachments/assets/56edc12e-d5dd-4d5c-839d-c7da04c0326e" />
-
-**❗ 시점별 누적 통계량으로 학습시킨 결과 중간 시점의 데이터에 대해서도 예측 성능 우수**
-
----
-
-# 🧠 Test Set 예측 성능 종합
-
-|Model|RMSE|MAE|
-|---|---|---|
-|TCN (Raw Data)|27.635|21.021|
-|LSTM (RUL Clipping) ✅|15.144|11.397|
-|LGBM (Total Stat)|166.879|162.734|
-|XGB (Cumulative Stat) ✅|20.470|13.212|
-
-**❗ 하이퍼 파라미터 튜닝,  LSTM (RUL Clipping) + XGB (Cumulative Stat) 고려**
+## 참고 문헌
+- Saxena et al., "Damage Propagation Modeling for Aircraft Engine", PHM08
+- C-MAPSS 공식 문서 및 유저 가이드
