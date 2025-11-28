@@ -1,193 +1,150 @@
-# 🚀 **NASA Turbofan Jet Engine Data Set - FD001**
+## 🧠 EDA
 
-# 📂 코드 개요
-```
-1105_EDA_FD001.ipynb                   : EDA 및 Feature Selection
-1106_LSTM_TCN_FD001.ipynb              : LSTM, TCN 학습 (기타 전처리 X)
-1107_XGB_LGBM_FD001_01.ipynb           : 유닛별 전체 기초 통계량 데이터로 XGB, LSTM 학습
-1107_XGB_LGBM_FD001_02.ipynb           : 시간별 누적 통계량 데이터로 XGB, LSTM 모델 학습
-1111_RUL_Clipping_LSTM_TCN_FD001.ipynb : RUL Clipping 적용하여 LSTM, TCN 학습
-```
+### 📌 운전조건 분포 (op1 - 고도, op2 - 마하, op3 - 스로틀)
 
-# 🧠 EDA
+FD001 데이터셋은 단일 조건으로 단일 운전 조건 하에서의 미세한 변동
+→ 모델의 입력으로 의미 X
+
+<img width="642" height="368" alt="image" src="https://github.com/user-attachments/assets/56599034-1d1f-4f17-ab00-8097137e3f8e" />
+
 각 센서별 이동평균의 추세를 확인하여 의미 없는 Feature 제외
 
-### 📌 센서별 이동평균: RUL이 작아질수록 위 아래로 발산할 수록 중요한 Feature
-<img width="1989" height="2390" alt="image" src="https://github.com/user-attachments/assets/aa6efd37-a5a1-4ab6-90c4-016ad3805602" />
+### 📌 센서별 이동평균 (s1 ~ s21)
+RUL이 작아질수록 위 아래로 발산할 수록 중요한 Feature
+
+<img width="757" height="455" alt="image" src="https://github.com/user-attachments/assets/433e47fc-687c-4ff6-b1c0-88c0bbd35974" />
+
+**❗ EDA 결과 `op1, op2, op3, s_1, s_5, s_6, s_16, s_18, s_19` 제외**
+
+## 🧠 Feature Engineering
+
+각 모델 별 모델에 따른 Feature Engineering 적용
+
+- Raw Data
+- 전체 통계량
+- 누적 통계량
+- RUL Clipping
+
+이후 모든 단계에서 RUL Clipping 적용 전후 성능, Scaler(Standard, MinMax, Robust)에 따른 성능 비교를 위해 모든 조합의 데이터에서 모델 학습
+
+### 📌 Linear Regression
+
+|Data|Model|Scaler|MAE|RMSE|
+|---|---|---|---|---|
+|Cumulative Stat (RUL Clipping)|Linear|RobustScaler|15.669487 ✅|18.858083 ✅|
+|Cumulative Stat|Linear|RobustScaler|15.669487|18.858083|
+|Cumulative Stat|Linear|StandardScaler|15.669487|18.858083|
+|Cumulative Stat (RUL Clipping)|Linear|StandardScaler|15.669487|18.858083|
+|Cumulative Stat|Linear|MinMaxScaler|15.669487|18.858083|
+
+**❗Linear Regression의 경우 전처리 기법, 스케일러에 관계없이 모두 동일한 결과**
 
 ---
 
-### 📌 센서별 이동평균: 정규분포 형태의 센서 확인
-<img width="1990" height="2390" alt="image" src="https://github.com/user-attachments/assets/b80bf040-d3ae-44d6-9171-f0e3e0a470fe" />
+### 📌 Ridge, Lasso, ElasticNet
+
+|Data|Model|Scaler|MAE|RMSE|
+|---|---|---|---|---|
+|Cumulative Stat|Lasso|StandardScaler|14.743519 ✅|17.918506|
+|Cumulative Stat (RUL Clipping)|Lasso|StandardScaler|14.743519|17.918506|
+|Cumulative Stat (RUL Clipping)|ElasticNet|StandardScaler|14.950372|17.850735 ✅|
+|Cumulative Stat|ElasticNet|StandardScaler|14.950372|17.850735|
+|Cumulative Stat|Lasso|RobustScaler|15.027839|18.076196|
+
+**❗규제 모델의 경우 RUL Clipping 적용여부와 관계없이 누적 통계량을 활용한 모델의 성능이 가장 가장 좋은 것으로 나타남**
 
 ---
 
-### 📌 상관계수 확인
-<img width="924" height="836" alt="image" src="https://github.com/user-attachments/assets/689a0e5b-cba7-4bed-98f1-86a6fa8d3ce8" />
+### 📌 RandomForest, Bagging
+
+|Data|Model|Scaler|MAE|RMSE|
+|---|---|---|---|---|
+|Cumulative Stat (RUL Clipping)|RandomForest|None|7.5183 ✅|10.653501 ✅|
+|Cumulative Stat (RUL Clipping)|Bagging|None|8.2900|11.502852|
+|Raw (RUL Clipping)|RandomForest|None|12.1630|17.186846|
+|Raw (RUL Clipping)|Bagging|None|12.5320|18.605591|
+|Cumulative Stat|RandomForest|None|13.1510|21.337424|
+
+**❗배깅 모델의 경우 대부분의 경우 RUL Clipping을 적용하였을 때 모델의 성능이 가장 좋았으며 또한 누적 통계량을 사용하여 학습시킨 모델의 성능이 가장 좋은 것으로 나타남**
 
 ---
 
-**❗ EDA 결과 `s_1, s_5, s_6, s_16, s_18, s_19` 제외**
+### 📌 XGBoost, LightGBM, CatBoost
 
-# 🧠 LSTM, TCN
-아무 전처리도 적용하지 않은 Raw Data를 크기 30인 Window를 통한 Sequence 입력 생성
+|Data|Model|Scaler|MAE|RMSE|
+|---|---|---|---|---|
+|Cumulative Stat (RUL Clipping)|CatBoost|None|7.629197 ✅|10.553240 ✅|
+|Cumulative Stat (RUL Clipping)|LightGBM|None|7.670903|11.071520|
+|Cumulative Stat (RUL Clipping)|XGBoost|None|8.567878|12.321973|
+|Raw (RUL Clipping)|CatBoost|None|11.679642|17.032597|
+|Raw (RUL Clipping)|LightGBM|None|11.754092|16.769257|
 
-### 📌 1부터 100까지의 Unit을 10개 단위로 나누어 10 Fold Validation 진행
-
-|Model|RMSE|MAE|
-|---|---|---|
-|LSTM|30.544|22.556|
-|TCN|28.902 ✅|20.580 ✅|
-
-### 📌 Train Set 예측 시각화 (각 유닛별 최대 RUL 기준)
-<img width="1238" height="470" alt="image" src="https://github.com/user-attachments/assets/c85ef542-4d1e-4867-93ec-55fcabc02c5a" />
+**❗부스팅 모델의 경우 모든 경우 RUL Clipping을 적용하였을 때 모델의 성능이 가장 좋았으며 또한 누적 통계량을 사용하여 학습시킨 모델의 성능이 가장 좋은 것으로 나타남**
 
 ---
 
-### 📌 Test Set 예측 결과
+### 📌 LSTM, TCN
 
-|Model|RMSE|MAE|
-|---|---|---|
-|LSTM|32.204|26.555|
-|TCN|27.635 ✅|21.021 ✅|
+LSTM, TCN 모델의 경우 전처리, 스케일러, RUL Clipping 적용 여부 비교 뿐만 아니라 Sequence의 window 크기 (30, 40, 50) 또한 추가로 비교 
 
-### 📌 Test Set 예측 시각화
-<img width="1238" height="470" alt="image" src="https://github.com/user-attachments/assets/b9615c1d-1952-4079-ad95-e4f2381e5dd2" />
+|Data|Model|Scaler|MAE|RMSE|
+|---|---|---|---|---|
+|Cumulative Stat (RUL Clipping) - 50|LSTM|RobustScaler|7.834088 ✅|12.397012|
+|Cumulative Stat (RUL Clipping)- 50|LSTM|MinMaxScaler|8.406834|12.200348 ✅|
+|Cumulative Stat (RUL Clipping)- 30|LSTM|RobustScaler|8.521237|12.321973|
+|Cumulative Stat (RUL Clipping)- 40|LSTM|RobustScaler|8.550470|13.436869|
+|Raw (RUL Clipping)- 50|LSTM|MinMaxScaler|9.087166|12.664556|
 
----
-
-RUL Clipping을 통해 RUL이 높은 구간에 데이터가 많아지는 것을 방지하고 중요한 고장 직전 데이터 예측 성능 향상
-
-### 📌 Train Data RUL 분포 확인
-<img width="571" height="455" alt="image" src="https://github.com/user-attachments/assets/282ef11a-42b2-44de-844e-76eb83c78242" />
-
-**❗ 확인 결과 125 ~ 200 사이 구간에서 수가 급격히 줄어드는 것을 확인할 수 있음.**
+**❗시계열 모델의 경우 모든 경우 RUL Clipping을 적용하였을 때 모델의 성능이 가장 좋았으며 또한 누적 통계량 (window size 50)을 사용하여 학습시킨 모델의 성능이 가장 좋은 것으로 나타남**
 
 ---
 
-### 📌 최적 RUL Clip Value 확인
-125 ~ 200 으로 RUL Clipping 후 10 Fold Validation 성능 확인
+### 📌 Final Result
 
-- LSTM
+각 모델별 가장 좋은 성능을 보인 모델  앙상블 전략 수립
 
-|Clip Value|RMSE|MAE|
-|---|---|---|
-|125|14.529 ✅|11.047 ✅|
-|150|19.105|14.784|
-|175|23.097|17.738|
-|200|25.973|19.661|
-|Raw|30.133|22.254|
+|Data|Model|Scaler|MAE|RMSE|RMSE - MAE|
+|---|---|---|---|---|---|
+|Cumulative Stat (RUL Clipping)|RandomForest|None|7.518300 ✅|10.653501|3.135201|
+|Cumulative Stat (RUL Clipping)|CatBoost|None|7.629197|10.553240 ✅|2.924043 ✅|
+|Cumulative Stat (RUL Clipping)|LightGBM|None|7.670903|11.071520|3.400618|
+|Cumulative Stat (RUL Clipping)	- 50|LSTM|RobustScaler|7.834088|12.397012|4.562924|
+|Cumulative Stat (RUL Clipping)|Bagging|None|8.290000|11.502852|3.212852|
+|Cumulative Stat (RUL Clipping) - 50|LSTM|MinMaxScaler|8.406834|12.200348|3.793514|
+|Cumulative Stat (RUL Clipping) - 30|LSTM|RobustScaler|8.521237|12.822533|4.301296|
+|Cumulative Stat (RUL Clipping) - 40|LSTM|RobustScaler|8.550470|13.436869|4.886398|
+|Cumulative Stat (RUL Clipping)	|XGBoost|None|8.567878|12.321973|3.754095|
+|Raw (RUL Clipping) - 50|LSTM|MinMaxScaler|9.087166|12.664556|3.577391|
 
-- TCN
+**❗RMSE - MAE: 오차의 분포 추정**
 
-|Clip Value|RMSE|MAE|
-|---|---|---|
-|125|15.014 ✅|11.624 ✅|
-|150|19.093|14.800|
-|175|22.225|16.876|
-|200|24.665|18.562|
-|Raw|29.731|21.602|
+### 📌 Hyperparameter Tuning + Ensemble
 
-**❗ 두 모델 모두 Clip Value 125에서 가장 좋은 성능을 보임**
+- 최종 결과에서 선정한 각 모델 오차 간의 상관관계 분석
 
----
+<img width="634" height="528" alt="image" src="https://github.com/user-attachments/assets/dbc21af9-71f5-4d50-a52d-5d3ccbcf4ff2" />
 
-### 📌 Train Set 예측 시각화 (각 유닛별 최대 RUL 기준, RUL Clipping 적용)
-<img width="1238" height="470" alt="image" src="https://github.com/user-attachments/assets/082825cf-d3a0-44f1-ac8f-f163a80009f6" />
+오차 간의 상관관계 분석 결과 비시계열 모델과 시계열 모델의 오차 패턴이 다르다고 볼 수 있음.<br>
+**❗따라서 비시계열 모델 + 시계열 모델 간 앙상블에서 시너지 가능성 ↑**
 
-Train Set에는 Max RUL이 125 이상인 데이터가 대부분 → 큰 RUL에서 성능이 떨어짐<br>
-**❗ But, RUL이 큰 데이터보다 고장 직전인 데이터 예측 성능이 중요**
+각 모델 별 하이퍼 파라미터 튜닝 후 앙상블<br>
+각 모델의 예측 결과에 가중치를 곱하는 방식으로 앙상블 적용<br>
+이때 가중치 또한 Optuna를 사용하여 튜닝
 
----
+- 앙상블 결과
 
-### 📌 Test Set 예측 결과 (RUL Clipping 적용)
+|Model|MAE|RMSE|RMSE - MAE|
+|---|---|---|---|
+|Bagging + LSTM|9.427386|13.275074|3.847687|
+|RandomForest + LSTM|8.724696|12.399868|3.675172|
+|LightGBM + LSTM|8.669172 ✅|12.161018 ✅|3.491846 ✅|
+|Catboost + LSTM|9.891600|14.025749|4.134149|
 
-|Model|RMSE|MAE|
-|---|---|---|
-|LSTM|15.144 ✅|11.397 ✅|
-|TCN|16.183|11.642|
+**❗모든 지표에서 LightGBM + LSTM 조합이 가장 성능이 좋은 것으로 나타났으나 앙상블 전보다 성능이 떨어지는 것으로 확인되었다.**
 
-### 📌 Test Set 예측 시각화
-<img width="1238" height="470" alt="image" src="https://github.com/user-attachments/assets/35115a26-4cd9-4773-b9b0-76e4ee65f2d8" />
+### 📌 Conclusion
 
-Test Set에는 RUL이 125 이하인 데이터가 대부분<br>
-**❗ 예상대로 고장 직전인 데이터 예측 성능 대폭 향상 (약 2배)**
+모든 지표를 고려하였을 때 누적통계량 + RUL Clipping을 적용한 RandomForest 모델이 가장 좋은 모델로 선정됨.
 
-# 🧠 XGB, LGBM
-각 유닛별 전체 통계량 데이터를 사용하여 학습
-```
-s_*_mean    : 모든 시점의 센서 평균값
-s_*_std     : 모든 시점의 센서 표준편차
-s_*_min     : 모든 시점의 센서 최소값
-s_*_max     : 모든 시점의 센서 최대값
-s_*_last    : 마지막 시점의 센서값
-s_*_median  : 모든 시점의 센서 중앙값
-s_*_trend   : 모든 시점의 센서값의 선형 추세
-```
+### 📌 보전비용 분석 및 제안
 
-### 📌 Train Set 예측 결과 (유닛별 전체 통계량)
-
-|Model|RMSE|MAE|
-|---|---|---|
-|XGB|17.483|14.206|
-|LGBM|17.246 ✅|12.853 ✅|
-
-### 📌 Train Set 예측 시각화 (유닛별 전체 통계량)
-<img width="1238" height="470" alt="image" src="https://github.com/user-attachments/assets/a25028be-bb99-4448-9e65-67416d7e940c" />
-
----
-
-### 📌 Test Set 예측 결과 (유닛별 전체 통계량)
-
-|Model|RMSE|MAE|
-|---|---|---|
-|XGB|217.300|212.600|
-|LGBM|166.879 ✅|162.734 ✅|
-
-### 📌 Test Set 예측 시각화 (유닛별 전체 통계량)
-
-<img width="1238" height="470" alt="image" src="https://github.com/user-attachments/assets/e78d566c-3b82-41b6-8231-8b1c7adc6e64" />
-
-주어진 Test Set은 Train Set과 달리 고장 직전 시점까지가 아닌 중간 시점이 주어짐
-**❗ 따라서 정확한 고장 시점을 구하기 위해선 전체 통계량이 아닌 시점마다 생성해야함**
-
----
-
-시계열 데이터의 특성을 반영하기 위해 모든 시점의 누적 통계량을 입력으로 학습하여 중간 시점의 데이터가 주어졌을 때 예측 성능 향상
-
-### 📌 Train Set 예측 결과 (시점별 누적 통계량)
-
-|Model|RMSE|MAE|
-|---|---|---|
-|XGB|4.471 ✅|2.685 ✅|
-|LGBM|4.843|3.044|
-
-### 📌 Train Set 예측 시각화 (시점별 누적 통계량)
-<img width="1238" height="470" alt="image" src="https://github.com/user-attachments/assets/1cf48fd0-5301-4463-b014-084625ad99bb" />
-
----
-
-### 📌 Test Set 예측 결과 (시점별 누적 통계량)
-
-|Model|RMSE|MAE|
-|---|---|---|
-|XGB|21.847|13.757|
-|LGBM|20.470 ✅|13.212 ✅|
-
-### 📌 Test Set 예측 시각화 (시점별 누적 통계량)
-<img width="1238" height="470" alt="image" src="https://github.com/user-attachments/assets/56edc12e-d5dd-4d5c-839d-c7da04c0326e" />
-
-**❗ 시점별 누적 통계량으로 학습시킨 결과 중간 시점의 데이터에 대해서도 예측 성능 우수**
-
----
-
-# 🧠 Test Set 예측 성능 종합
-
-|Model|RMSE|MAE|
-|---|---|---|
-|TCN (Raw Data)|27.635|21.021|
-|LSTM (RUL Clipping) ✅|15.144|11.397|
-|LGBM (Total Stat)|166.879|162.734|
-|XGB (Cumulative Stat) ✅|20.470|13.212|
-
-**❗ 하이퍼 파라미터 튜닝,  LSTM (RUL Clipping) + XGB (Cumulative Stat) 고려**
