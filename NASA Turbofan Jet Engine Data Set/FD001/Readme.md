@@ -145,6 +145,3 @@ LSTM, TCN 모델의 경우 전처리, 스케일러, RUL Clipping 적용 여부 �
 ### 📌 Conclusion
 
 모든 지표를 고려하였을 때 누적통계량 + RUL Clipping을 적용한 RandomForest 모델이 가장 좋은 모델로 선정됨.
-
-### 📌 보전비용 분석 및 제안
-
